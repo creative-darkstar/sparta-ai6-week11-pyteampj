@@ -8,9 +8,6 @@
 **/media/images/*
 !**/media/images/.gitkeep
 
-**/static/*
-!**/static/.gitkeep
-
 ### Django ###
 *.log
 *.pot
