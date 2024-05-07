@@ -9,6 +9,7 @@ from . import views
 app_name = 'accounts'
 
 urlpatterns = [
+    path("signup/", views.SignupAPIView.as_view(), name="signup"),
     path("login/", TokenObtainPairView.as_view(), name="login"),
     path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
 ]
