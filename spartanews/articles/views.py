@@ -30,3 +30,15 @@ class ContentDetailAPIView(APIView):
         serializer = ContentSerializer(content)
         return Response(serializer.data)
     
+    def put(self, request, content_id):
+        content = self.get_object(content_id)
+        serializer = ContentSerializer(content, data=request.data ,partial=True)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            return Response(serializer.data)
+
+    def delete(self, request, content_id):
+        content = self.get_object(content_id)
+        content.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
