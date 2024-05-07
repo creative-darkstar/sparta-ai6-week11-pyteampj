@@ -20,6 +20,7 @@ class ContentInfo(models.Model):
         default='N'
     )
     url = models.URLField(null=True, blank=True)
+    is_visible = models.BooleanField(default=True)
     create_dt = models.DateTimeField(auto_now_add=True)
     update_dt = models.DateTimeField(auto_now=True)
 
@@ -32,5 +33,6 @@ class CommentInfo(models.Model):
         ContentInfo, on_delete=models.CASCADE, related_name="related_content"
     )
     content = models.TextField()
+    is_visible = models.BooleanField(default=True)
     create_dt = models.DateTimeField(auto_now_add=True)
     update_dt = models.DateTimeField(auto_now=True)
