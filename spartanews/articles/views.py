@@ -1,22 +1,28 @@
+from django.shortcuts import get_object_or_404
+from rest_framework import status, generics, filters
 from rest_framework.response import Response
-from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
-from .serializers import ContentSerializer
-from django.shortcuts import get_object_or_404
-from .models import ContentInfo
 
+from .serializers import ContentSerializer
+from .models import ContentInfo, CommentInfo
 
 
 class ContentListAPIView(APIView):
 
     # permission_classes = [IsAuthenticated]
 
+    def get(self, request):
+        rows = ContentInfo.objects.filter(is_visible=True)
+        serializer = ContentSerializer(rows, many=True)
+        return Response(serializer.data)
+
     def post(self, request):
         serializer = ContentSerializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+
 
 class ContentDetailAPIView(APIView):
 
@@ -41,4 +47,3 @@ class ContentDetailAPIView(APIView):
         content = self.get_object(content_id)
         content.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-    
