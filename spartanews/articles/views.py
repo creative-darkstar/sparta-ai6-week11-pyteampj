@@ -48,7 +48,7 @@ class ContentDetailAPIView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
     
 
-class PostBookmarkAPIView(generics.UpdateAPIView):
+class PostLikeAPIView(generics.UpdateAPIView):
     permission_classes = [IsAuthenticated]
     
     queryset = ContentInfo.objects.all()
