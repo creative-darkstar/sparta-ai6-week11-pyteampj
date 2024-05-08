@@ -18,7 +18,13 @@ class SignupAPIView(APIView):
                 }, 
                 status=status.HTTP_400_BAD_REQUEST
             )
-
+        
+        if get_user_model().objects.filter(username=username).exists():
+            return Response({"error":"이미 존재하는 사용자명입니다."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if get_user_model().objects.filter(email=email).exists():
+            return Response({"error":"이미 존재하는 이메일입니다."}, status=status.HTTP_400_BAD_REQUEST)
+        
         user = get_user_model().objects.create_user(
             username = username,
             email = email,
