@@ -51,6 +51,7 @@ class UserPageAPIView(APIView):
     def put(self, request, username):
         user = get_object_or_404(get_user_model(), username=username)
 
+        # 해당 유저일 때만 수정 가능
         if request.user != user:
             return Response({"error":"권한이 없습니다."}, status=status.HTTP_403_FORBIDDEN)
         
