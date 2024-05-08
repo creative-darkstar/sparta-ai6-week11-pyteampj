@@ -39,3 +39,8 @@ class SignupAPIView(APIView):
             },
             status = status.HTTP_201_CREATED
         )
+    
+
+class UserPageAPIView(APIView):
+    def get(self, request, username):
+        pass
