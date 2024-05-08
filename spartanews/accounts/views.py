@@ -11,6 +11,14 @@ class SignupAPIView(APIView):
         username = data.get("username")
         email = data.get("email")
 
+        if not username or not email:
+            return Response(
+                {
+                    "message":"필수 항목을 입력하여 주십시오."
+                }, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         user = get_user_model().objects.create_user(
             username = username,
             email = email,
