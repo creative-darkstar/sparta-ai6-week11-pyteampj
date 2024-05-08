@@ -11,6 +11,7 @@ class SignupAPIView(APIView):
         username = data.get("username")
         email = data.get("email")
 
+        # username, email 필수 입력 항목
         if not username or not email:
             return Response(
                 {
@@ -19,9 +20,11 @@ class SignupAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # username 중복 확인
         if get_user_model().objects.filter(username=username).exists():
             return Response({"error":"이미 존재하는 사용자명입니다."}, status=status.HTTP_400_BAD_REQUEST)
         
+        # email 중복 확인
         if get_user_model().objects.filter(email=email).exists():
             return Response({"error":"이미 존재하는 이메일입니다."}, status=status.HTTP_400_BAD_REQUEST)
         
