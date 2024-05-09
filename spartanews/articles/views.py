@@ -6,7 +6,6 @@ from rest_framework import status, filters
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
-
 from .serializers import ContentSerializer
 from .models import ContentInfo, CommentInfo
 
@@ -69,3 +68,24 @@ class ContentDetailAPIView(APIView):
         content = self.get_object(content_id)
         content.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+    
+
+class PostLikeAPIView(generics.UpdateAPIView):
+    permission_classes = [IsAuthenticated]
+    
+    queryset = ContentInfo.objects.all()
+    serializer_class = ContentSerializer
+    lookup_field = 'id'
+
+    def post(self, request, pk):
+        instance = get_object_or_404(ContentInfo, pk=pk)
+        user = request.user
+        if user in instance.bookmarked_by.all():
+            instance.bookmarked_by.remove(user)
+            instance.save()
+            return Response(status=status.HTTP_200_OK)
+        else:
+            instance.bookmarked_by.add(user)
+            instance.save()
+            return Response(status=status.HTTP_201_CREATED)
+
