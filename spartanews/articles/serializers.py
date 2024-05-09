@@ -25,3 +25,21 @@ class ContentListSerializer(ContentSerializer):
     comment_count = serializers.IntegerField()
     like_count = serializers.IntegerField()
     article_point = serializers.IntegerField()
+
+
+class CommentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CommentInfo
+        fields = '__all__'
+        read_only_fields = (
+            "userinfo",
+            "contentinfo",
+            "is_visible",
+        )
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        ret.pop("userinfo")
+        ret.pop("contentinfo")
+        ret.pop("is_visible")
+        return ret

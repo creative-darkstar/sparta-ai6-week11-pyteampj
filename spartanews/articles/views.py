@@ -12,6 +12,7 @@ from django.utils import timezone
 # DRF modules
 from rest_framework import status, generics
 from rest_framework.exceptions import APIException
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
@@ -20,6 +21,7 @@ from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnl
 from .serializers import (
     ContentSerializer,
     ContentListSerializer,
+    CommentSerializer,
 )
 from .models import ContentInfo, CommentInfo
 
@@ -29,8 +31,21 @@ class InvalidQueryParamsException(APIException):
     default_detail = "Your request contain invalid query parameters."
 
 
+class ArticlesListPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
+class CommentsListPagination(PageNumberPagination):
+    page_size = 50
+    page_size_query_param = 'page_size'
+    max_page_size = 50
+
+
 class ContentListAPIView(generics.ListAPIView):
     serializer_class = ContentListSerializer
+    pagination_class = ArticlesListPagination
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
@@ -96,14 +111,14 @@ class ContentListAPIView(generics.ListAPIView):
         # check 'liked_by' query string
         if liked_by is not None:
             if liked_by.isdecimal():
-                q &= Q(liked_by=int(liked_by))
+                q &= Q(liked_by__id=int(liked_by))
             else:
                 raise InvalidQueryParamsException
 
         # check 'favorite_by' query string
         if favorite_by is not None:
             if favorite_by.isdecimal():
-                q &= Q(favorite_by=int(favorite_by))
+                q &= Q(favorite_by__id=int(favorite_by))
             else:
                 raise InvalidQueryParamsException
 
@@ -142,7 +157,49 @@ class ContentDetailAPIView(APIView):
         content = self.get_object(content_id)
         content.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-    
+
+
+class CommentListAPIView(generics.ListAPIView):
+    serializer_class = CommentSerializer
+    pagination_class = CommentsListPagination
+    # permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get_queryset(self):
+        return CommentInfo.objects.filter(
+            contentinfo_id=self.kwargs.get("content_id"),
+            is_visible=True
+        ).order_by("create_dt")
+
+
+class CommentDetailAPIView(APIView):
+    # permission_classes = [IsAuthenticated]
+
+    def get_row(self, comment_id):
+        return get_object_or_404(CommentInfo, pk=comment_id)
+
+    def put(self, request, comment_id):
+        row = self.get_row(comment_id)
+        # 로그인한 사용자와 상품 등록자가 다를 경우 상태코드 403
+        if request.user.id != row.user.id:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        serializer = CommentSerializer(row, data=request.data, partial=True)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
+
+    def delete(self, request, comment_id):
+        row = self.get_row(comment_id)
+        # 로그인한 사용자와 상품 등록자가 다를 경우 상태코드 403
+        if request.user.id != row.user.id:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        # sofr delete
+        # 삭제된 상품 정보 추적을 위함
+        row.is_visible = False
+        row.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 class PostLikeAPIView(generics.UpdateAPIView):
     permission_classes = [IsAuthenticated]
@@ -162,4 +219,3 @@ class PostLikeAPIView(generics.UpdateAPIView):
             instance.bookmarked_by.add(user)
             instance.save()
             return Response(status=status.HTTP_201_CREATED)
-
