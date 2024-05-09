@@ -5,9 +5,6 @@ from datetime import datetime, timedelta
 
 class ContentSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="userinfo.username", read_only=True)
-    comment_count = serializers.IntegerField()
-    like_count = serializers.IntegerField()
-    article_point = serializers.IntegerField()
 
     class Meta:
         model = ContentInfo
@@ -15,9 +12,6 @@ class ContentSerializer(serializers.ModelSerializer):
         read_only_fields = (
             "userinfo",
             "is_visible",
-            "comment_count",
-            "like_count",
-            "article_point",
         )
 
     def to_representation(self, instance):
@@ -25,3 +19,9 @@ class ContentSerializer(serializers.ModelSerializer):
         ret.pop("userinfo")
         ret.pop("is_visible")
         return ret
+
+
+class ContentListSerializer(ContentSerializer):
+    comment_count = serializers.IntegerField()
+    like_count = serializers.IntegerField()
+    article_point = serializers.IntegerField()

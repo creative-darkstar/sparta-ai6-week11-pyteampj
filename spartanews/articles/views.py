@@ -14,10 +14,13 @@ from rest_framework import status, generics
 from rest_framework.exceptions import APIException
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 
 # serializers and models
-from .serializers import ContentSerializer
+from .serializers import (
+    ContentSerializer,
+    ContentListSerializer,
+)
 from .models import ContentInfo, CommentInfo
 
 
@@ -27,8 +30,8 @@ class InvalidQueryParamsException(APIException):
 
 
 class ContentListAPIView(generics.ListAPIView):
-    serializer_class = ContentSerializer
-    # permission_classes = [IsAuthenticated]
+    serializer_class = ContentListSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
         query_params = self.request.query_params
