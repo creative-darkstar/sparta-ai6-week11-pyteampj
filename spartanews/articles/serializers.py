@@ -15,6 +15,9 @@ class ContentSerializer(serializers.ModelSerializer):
         read_only_fields = (
             "userinfo",
             "is_visible",
+            "comment_count",
+            "like_count",
+            "article_point",
         )
 
     def to_representation(self, instance):
