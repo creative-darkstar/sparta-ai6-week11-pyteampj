@@ -109,7 +109,10 @@ class ContentListAPIView(generics.ListAPIView):
     def post(self, request):
         serializer = ContentSerializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
-            serializer.save()
+            serializer.save(
+                userinfo=request.user,
+                is_visible=True
+            )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
