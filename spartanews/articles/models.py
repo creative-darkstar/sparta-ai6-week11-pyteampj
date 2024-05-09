@@ -25,16 +25,12 @@ class ContentInfo(models.Model):
     update_dt = models.DateTimeField(auto_now=True)
 
 
-
-
-
-
 class CommentInfo(models.Model):
     userinfo = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="comments"
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="comments_by_user"
     )
     contentinfo = models.ForeignKey(
-        ContentInfo, on_delete=models.CASCADE, related_name="related_content"
+        ContentInfo, on_delete=models.CASCADE, related_name="comments_on_content"
     )
     content = models.TextField()
     is_visible = models.BooleanField(default=True)
