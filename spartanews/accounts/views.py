@@ -1,8 +1,9 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
 from rest_framework.response import Response
 from rest_framework import status
+from .serializers import UserSerializer
 
 class SignupAPIView(APIView):
     def post(self, request):
@@ -42,3 +43,40 @@ class SignupAPIView(APIView):
             },
             status = status.HTTP_201_CREATED
         )
+    
+
+class UserPageAPIView(APIView):
+    def get(self, request, username):
+        user = get_object_or_404(get_user_model(), username=username)
+        serializer = UserSerializer(user)
+        return Response(serializer.data)
+    
+    def put(self, request, username):
+        user = get_object_or_404(get_user_model(), username=username)
+
+        # 해당 유저일 때만 수정 가능
+        if request.user != user:
+            return Response({"error":"권한이 없습니다."}, status=status.HTTP_403_FORBIDDEN)
+        
+        # 소개, 비밀번호만 수정 가능
+        user.introduction = request.data.get("introduction", user.introduction)
+        user.password = request.data.get("password", user.password)
+
+        # 비밀번호 빈칸 제출 불가
+        if not user.password:
+            return Response({"message":"비밀번호를 입력해 주십시오."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        user.set_password(user.password)
+        # TODO 비밀번호 입력 확인, 비밀번호 조건 확인 
+        user.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+        # ## 시리얼라이저 이용
+        # serializer = UserSerializer(user, data=request.data, partial=True)
+
+        # if serializer.is_valid():
+        #     serializer.save()
+        #     return Response(serializer.data)
+        
+        ### 비밀번호 설정 set_password()
+        ### 비밀번호 확인 check_password()
