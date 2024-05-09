@@ -1,5 +1,8 @@
+from django.db.models import F, Count, ExpressionWrapper, DurationField
+from django.db.models.functions import Now, Extract, Cast
 from django.shortcuts import get_object_or_404
-from rest_framework import status, generics, filters
+from django.utils import timezone
+from rest_framework import status, filters
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -8,12 +11,31 @@ from .serializers import ContentSerializer
 from .models import ContentInfo, CommentInfo
 
 
+
+from datetime import datetime, timedelta
+def article_point(create_dt, cm_cnt, like_cnt):
+    # create_dt: create_dt
+    # cm_cnt: comments count
+    # like_cnt: article(content) likes count
+
+    print(create_dt, cm_cnt, like_cnt)
+    now = datetime.now()
+    return -5 * (now - create_dt).days + 3 * cm_cnt + like_cnt
+
+
 class ContentListAPIView(APIView):
 
     # permission_classes = [IsAuthenticated]
 
     def get(self, request):
         rows = ContentInfo.objects.filter(is_visible=True)
+        rows = rows.annotate(
+            comment_count=Count(F("related_content")),
+            like_count=Count(F("liked_by")),
+            duration=F("create_dt")
+        )
+        for row in rows:
+            print(row.comment_count, row.like_count, row.duration)
         serializer = ContentSerializer(rows, many=True)
         return Response(serializer.data)
 

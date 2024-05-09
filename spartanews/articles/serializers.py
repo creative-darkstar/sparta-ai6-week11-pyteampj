@@ -14,7 +14,7 @@ def article_point(create_dt, cm_cnt, like_cnt):
 class ContentSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="userinfo.username", read_only=True)
     comment_count = serializers.IntegerField(source="related_content.count", read_only=True)
-    like_count = serializers.IntegerField(source="userinfo.liked_contents.count", read_only=True)
+    like_count = serializers.IntegerField(source="liked_by.count", read_only=True)
 
     class Meta:
         model = ContentInfo
