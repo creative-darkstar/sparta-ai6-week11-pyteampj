@@ -1,6 +1,5 @@
 from rest_framework import serializers
 from .models import ContentInfo, CommentInfo
-from datetime import datetime, timedelta
 
 
 class ContentSerializer(serializers.ModelSerializer):

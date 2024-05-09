@@ -1,6 +1,7 @@
 # Django modules
+from django.contrib.auth import get_user_model
 from django.db.models import (
-    F, Q, Count, Func, ExpressionWrapper,
+    F, Count, Func, ExpressionWrapper,
     DateTimeField,
     DurationField,
     IntegerField,
@@ -26,17 +27,20 @@ from .serializers import (
 from .models import ContentInfo, CommentInfo
 
 
+# Custom API exception class when request with unavailable query params
 class InvalidQueryParamsException(APIException):
     status_code = status.HTTP_406_NOT_ACCEPTABLE
     default_detail = "Your request contain invalid query parameters."
 
 
+# Custom pagination class for articles list
 class ArticlesListPagination(PageNumberPagination):
     page_size = 20
     page_size_query_param = 'page_size'
     max_page_size = 100
 
 
+# Custom pagination class for an article's comments list
 class CommentsListPagination(PageNumberPagination):
     page_size = 50
     page_size_query_param = 'page_size'
@@ -55,12 +59,37 @@ class ContentListAPIView(generics.ListAPIView):
         order_by = query_params.get("order-by")
 
         # value of filtering query string
-        user = query_params.get("user")
-        liked_by = query_params.get("liked-by")
         favorite_by = query_params.get("favorite-by")
+        liked_by = query_params.get("liked-by")
+        user = query_params.get("user")
 
-        # get rows from table 'ContentInfo'
-        rows = ContentInfo.objects.filter(is_visible=True)
+        # Filtering
+
+        # check 'favorite_by' query string
+        # UserInfo.favorite_contents
+        if favorite_by:
+            if favorite_by.isdecimal():
+                rows = get_user_model().objects.get(pk=int(favorite_by)).favorite_contents.filter(is_visible=True)
+            else:
+                raise InvalidQueryParamsException
+        # check 'liked_by' query string
+        # UserInfo.liked_contents
+        elif liked_by:
+            if liked_by.isdecimal():
+                rows = get_user_model().objects.get(pk=int(liked_by)).liked_contents.filter(is_visible=True)
+            else:
+                raise InvalidQueryParamsException
+        # check 'user' query string
+        # ContentInfo
+        elif user:
+            if user.isdecimal():
+                rows = ContentInfo.objects.filter(is_visible=True, userinfo_id=int(user))
+            else:
+                raise InvalidQueryParamsException
+        # no query string
+        # ContentInfo
+        else:
+            rows = ContentInfo.objects.filter(is_visible=True)
 
         # annotate fields: 'comment_count', 'like_count', 'article_point'
         # annotate but not include in serialized data: 'duration_in_microseconds', 'duration'
@@ -97,32 +126,7 @@ class ContentListAPIView(generics.ListAPIView):
         else:
             rows = rows.order_by("-article_point", "-create_dt")
 
-        # Filtering
-        # create Q object
-        q = Q()
-
-        # check 'user' query string
-        if user is not None:
-            if user.isdecimal():
-                q &= Q(userinfo_id=int(user))
-            else:
-                raise InvalidQueryParamsException
-
-        # check 'liked_by' query string
-        if liked_by is not None:
-            if liked_by.isdecimal():
-                q &= Q(liked_by__id=int(liked_by))
-            else:
-                raise InvalidQueryParamsException
-
-        # check 'favorite_by' query string
-        if favorite_by is not None:
-            if favorite_by.isdecimal():
-                q &= Q(favorite_by__id=int(favorite_by))
-            else:
-                raise InvalidQueryParamsException
-
-        return rows.filter(q)
+        return rows
 
     def post(self, request):
         serializer = ContentSerializer(data=request.data)
