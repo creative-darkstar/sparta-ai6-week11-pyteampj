@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from rest_framework.response import Response
 from rest_framework import status
 from .serializers import UserSerializer
+from articles.models import ContentInfo
 
 class SignupAPIView(APIView):
     def post(self, request):
@@ -46,6 +47,10 @@ class UserPageAPIView(APIView):
     def get(self, request, username):
         user = get_object_or_404(get_user_model(), username=username)
         serializer = UserSerializer(user)
+
+        # liked_contents = ContentInfo.objects.all().filter(userinfo=username)
+        # favorite_contents = ContentInfo.objects.all().filter(userinfo=username)
+
         return Response(serializer.data)
     
     def put(self, request, username):
