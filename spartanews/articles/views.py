@@ -1,8 +1,8 @@
-from django.db.models import F, Count, ExpressionWrapper, DurationField
+from django.db.models import F, Count, ExpressionWrapper, DurationField, DateTimeField
 from django.db.models.functions import Now, Extract, Cast
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from rest_framework import status, filters
+from rest_framework import status, filters, generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -28,13 +28,15 @@ class ContentListAPIView(APIView):
 
     def get(self, request):
         rows = ContentInfo.objects.filter(is_visible=True)
+        now = datetime.now().replace(microsecond=0)
+        print(now)
         rows = rows.annotate(
             comment_count=Count(F("related_content")),
             like_count=Count(F("liked_by")),
-            duration=F("create_dt")
+            now=Cast(now, DateTimeField()),
         )
         for row in rows:
-            print(row.comment_count, row.like_count, row.duration)
+            print(row.comment_count, row.like_count, row.now, row.create_dt, row.now - row.create_dt)
         serializer = ContentSerializer(rows, many=True)
         return Response(serializer.data)
 
