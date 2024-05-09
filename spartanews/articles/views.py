@@ -1,44 +1,110 @@
-from django.db.models import F, Count, ExpressionWrapper, DurationField, DateTimeField
-from django.db.models.functions import Now, Extract, Cast
+# Django modules
+from django.db.models import (
+    F, Q, Count, Func, ExpressionWrapper,
+    DateTimeField,
+    DurationField,
+    IntegerField,
+)
+from django.db.models.functions import Cast
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from rest_framework import status, filters, generics
+
+# DRF modules
+from rest_framework import status, generics
+from rest_framework.exceptions import APIException
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
+
+# serializers and models
 from .serializers import ContentSerializer
 from .models import ContentInfo, CommentInfo
 
 
-
-from datetime import datetime, timedelta
-def article_point(create_dt, cm_cnt, like_cnt):
-    # create_dt: create_dt
-    # cm_cnt: comments count
-    # like_cnt: article(content) likes count
-
-    print(create_dt, cm_cnt, like_cnt)
-    now = datetime.now()
-    return -5 * (now - create_dt).days + 3 * cm_cnt + like_cnt
+class InvalidQueryParamsException(APIException):
+    status_code = status.HTTP_406_NOT_ACCEPTABLE
+    default_detail = "Your request contain invalid query parameters."
 
 
-class ContentListAPIView(APIView):
-
+class ContentListAPIView(generics.ListAPIView):
+    serializer_class = ContentSerializer
     # permission_classes = [IsAuthenticated]
 
-    def get(self, request):
+    def get_queryset(self):
+        query_params = self.request.query_params
+
+        # value of ordering query string
+        order_by = query_params.get("order-by")
+
+        # value of filtering query string
+        user = query_params.get("user")
+        liked_by = query_params.get("liked-by")
+        favorite_by = query_params.get("favorite-by")
+
+        # get rows from table 'ContentInfo'
         rows = ContentInfo.objects.filter(is_visible=True)
-        now = datetime.now().replace(microsecond=0)
-        print(now)
+
+        # annotate fields: 'comment_count', 'like_count', 'article_point'
+        # annotate but not include in serialized data: 'duration_in_microseconds', 'duration'
+        # duration_in_microseconds is divided by (1000 * 1000 * 60 * 60 * 24)
+        # because of converting microseconds to days
         rows = rows.annotate(
-            comment_count=Count(F("related_content")),
+            comment_count=Count(F("comments_on_content")),
             like_count=Count(F("liked_by")),
-            now=Cast(now, DateTimeField()),
+            duration_in_microseconds=ExpressionWrapper(
+                Cast(timezone.now().replace(microsecond=0), DateTimeField()) - F("create_dt"),
+                output_field=DurationField()
+            )
+        ).annotate(
+            duration=ExpressionWrapper(
+                Func(
+                    F('duration_in_microseconds') / (1000 * 1000 * 60 * 60 * 24),
+                    function='FLOOR',
+                    template="%(function)s(%(expressions)s)"
+                ),
+                output_field=IntegerField()
+            )
+        ).annotate(
+            article_point=ExpressionWrapper(
+                -5 * F("duration") + 3 * F("comment_count") + F("like_count"),
+                output_field=IntegerField()
+            )
         )
-        for row in rows:
-            print(row.comment_count, row.like_count, row.now, row.create_dt, row.now - row.create_dt)
-        serializer = ContentSerializer(rows, many=True)
-        return Response(serializer.data)
+
+        # Ordering
+        # order-by=new: ORDER BY create_dt DESC
+        # nothing: ORDER BY article_point DESC create_dt DESC
+        if order_by == "new":
+            rows = rows.order_by("-create_dt")
+        else:
+            rows = rows.order_by("-article_point", "-create_dt")
+
+        # Filtering
+        # create Q object
+        q = Q()
+
+        # check 'user' query string
+        if user is not None:
+            if user.isdecimal():
+                q &= Q(userinfo_id=int(user))
+            else:
+                raise InvalidQueryParamsException
+
+        # check 'liked_by' query string
+        if liked_by is not None:
+            if liked_by.isdecimal():
+                q &= Q(liked_by=int(liked_by))
+            else:
+                raise InvalidQueryParamsException
+
+        # check 'favorite_by' query string
+        if favorite_by is not None:
+            if favorite_by.isdecimal():
+                q &= Q(favorite_by=int(favorite_by))
+            else:
+                raise InvalidQueryParamsException
+
+        return rows.filter(q)
 
     def post(self, request):
         serializer = ContentSerializer(data=request.data)
