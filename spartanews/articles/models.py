@@ -23,20 +23,14 @@ class ContentInfo(models.Model):
     is_visible = models.BooleanField(default=True)
     create_dt = models.DateTimeField(auto_now_add=True)
     update_dt = models.DateTimeField(auto_now=True)
-    like_users = models.ManyToManyField(
-        settings.AUTH_USER_MODEL, related_name="like_articles"
-    )
-
-
-
 
 
 class CommentInfo(models.Model):
     userinfo = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="comments"
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="comments_by_user"
     )
     contentinfo = models.ForeignKey(
-        ContentInfo, on_delete=models.CASCADE, related_name="related_content"
+        ContentInfo, on_delete=models.CASCADE, related_name="comments_on_content"
     )
     content = models.TextField()
     is_visible = models.BooleanField(default=True)
