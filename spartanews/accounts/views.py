@@ -1,9 +1,10 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import UserSerializer
+from .models import UserInfo
+from .serializers import UserSerializer, OtherUserSerializer
 
 class SignupAPIView(APIView):
     def post(self, request):
@@ -48,7 +49,11 @@ class SignupAPIView(APIView):
 class UserPageAPIView(APIView):
     def get(self, request, username):
         user = get_object_or_404(get_user_model(), username=username)
-        serializer = UserSerializer(user)
+
+        if request.user == user:
+            serializer = UserSerializer(user)
+        else:
+            serializer = OtherUserSerializer(user)
         return Response(serializer.data)
     
     def put(self, request, username):
@@ -70,13 +75,3 @@ class UserPageAPIView(APIView):
         # TODO 비밀번호 입력 확인, 비밀번호 조건 확인 
         user.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
-
-        # ## 시리얼라이저 이용
-        # serializer = UserSerializer(user, data=request.data, partial=True)
-
-        # if serializer.is_valid():
-        #     serializer.save()
-        #     return Response(serializer.data)
-        
-        ### 비밀번호 설정 set_password()
-        ### 비밀번호 확인 check_password()
