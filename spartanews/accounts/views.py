@@ -3,8 +3,8 @@ from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
 from rest_framework.response import Response
 from rest_framework import status
-from .models import UserInfo
 from .serializers import UserSerializer, OtherUserSerializer
+
 
 class SignupAPIView(APIView):
     def post(self, request):
@@ -74,4 +74,4 @@ class UserPageAPIView(APIView):
         user.set_password(user.password)
         # TODO 비밀번호 입력 확인, 비밀번호 조건 확인 
         user.save()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response(status=status.HTTP_200_OK)
