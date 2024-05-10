@@ -132,7 +132,7 @@ Sparta NEWS에서 최신 정보를 확인하세요 (reference: [GeekNews](https:
 
 ## ERD
 
-![ERD]()
+![ERD](https://github.com/creative-darkstar/sparta-ai6-week11-pyteampj/assets/159861706/8a88d3a7-cc4c-4d84-9231-b203551a62ef)
 
 
 ## API 명세
