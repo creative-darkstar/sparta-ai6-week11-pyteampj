@@ -3,7 +3,7 @@ from . import views
 
 app_name = 'articles'
 urlpatterns = [
-    path("/", views.ContentListAPIView.as_view(), name="content_list"),
+    path("", views.ContentListAPIView.as_view(), name="content_list"),
     path("<int:content_id>/", views.ContentDetailAPIView.as_view(), name="content_detail"),
     path("<int:content_id>/favorite/", views.content_favorite, name="content_favorite"),
     path("<int:content_id>/like/", views.content_like, name="content_like"),
