@@ -28,6 +28,7 @@ class ContentAllSerializer(ContentSerializer):
 
 class CommentSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="userinfo.username", read_only=True)
+    likes = serializers.IntegerField(source="liked_by.count", read_only=True)
 
     class Meta:
         model = CommentInfo
