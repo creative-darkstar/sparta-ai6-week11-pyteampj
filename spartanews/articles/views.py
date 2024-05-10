@@ -244,6 +244,16 @@ class CommentListAPIView(generics.ListAPIView):
         # order by latest
         return rows.order_by("-create_dt")
 
+    def post(self, request, content_id):
+        serializer = CommentSerializer(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save(
+                userinfo=request.user,
+                contentinfo=ContentInfo.objects.get(pk=content_id),
+                is_visible=True
+            )
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
 
 class CommentDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]
