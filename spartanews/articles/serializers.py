@@ -20,13 +20,15 @@ class ContentSerializer(serializers.ModelSerializer):
         return ret
 
 
-class ContentListSerializer(ContentSerializer):
+class ContentAllSerializer(ContentSerializer):
     comment_count = serializers.IntegerField()
     like_count = serializers.IntegerField()
     article_point = serializers.IntegerField()
 
 
 class CommentSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source="userinfo.username", read_only=True)
+
     class Meta:
         model = CommentInfo
         fields = '__all__'

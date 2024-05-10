@@ -21,7 +21,7 @@ from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnl
 # serializers and models
 from .serializers import (
     ContentSerializer,
-    ContentListSerializer,
+    ContentAllSerializer,
     CommentSerializer,
 )
 from .models import ContentInfo, CommentInfo
@@ -48,7 +48,7 @@ class CommentsListPagination(PageNumberPagination):
 
 
 class ContentListAPIView(generics.ListAPIView):
-    serializer_class = ContentListSerializer
+    serializer_class = ContentAllSerializer
     pagination_class = ArticlesListPagination
     permission_classes = [IsAuthenticatedOrReadOnly]
 
@@ -138,52 +138,121 @@ class ContentListAPIView(generics.ListAPIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
-class ContentDetailAPIView(APIView):
+class ContentDetailAPIView(generics.ListAPIView):
+    serializer_class = ContentAllSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
-    # permission_classes = [IsAuthenticated]
-
-    def get_object(self, content_id):
+    def get_row(self, content_id):
         return get_object_or_404(ContentInfo, pk=content_id)
 
-    def get(self, request, content_id):
-        content = self.get_object(content_id)
-        serializer = ContentSerializer(content)
-        return Response(serializer.data)
+    def get_queryset(self):
+        row = ContentInfo.objects.filter(pk=self.kwargs.get("content_id"), is_visible=True)
+        if not row:
+            return ContentInfo.objects.none()
+
+        # annotate fields: 'comment_count', 'like_count', 'article_point'
+        # annotate but not include in serialized data: 'duration_in_microseconds', 'duration'
+        # duration_in_microseconds is divided by (1000 * 1000 * 60 * 60 * 24)
+        # because of converting microseconds to days
+        row = row.annotate(
+            comment_count=Count(F("comments_on_content")),
+            like_count=Count(F("liked_by")),
+            duration_in_microseconds=ExpressionWrapper(
+                Cast(timezone.now().replace(microsecond=0), DateTimeField()) - F("create_dt"),
+                output_field=DurationField()
+            )
+        ).annotate(
+            duration=ExpressionWrapper(
+                Func(
+                    F('duration_in_microseconds') / (1000 * 1000 * 60 * 60 * 24),
+                    function='FLOOR',
+                    template="%(function)s(%(expressions)s)"
+                ),
+                output_field=IntegerField()
+            )
+        ).annotate(
+            article_point=ExpressionWrapper(
+                -5 * F("duration") + 3 * F("comment_count") + F("like_count"),
+                output_field=IntegerField()
+            )
+        )
+
+        return row
     
     def put(self, request, content_id):
-        content = self.get_object(content_id)
-        serializer = ContentSerializer(content, data=request.data ,partial=True)
+        row = self.get_row(content_id)
+        # 로그인한 사용자와 글 작성자가 다를 경우 상태코드 403
+        if request.user.id != row.user.id:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        serializer = ContentSerializer(row, data=request.data, partial=True)
         if serializer.is_valid(raise_exception=True):
             serializer.save()
             return Response(serializer.data)
 
     def delete(self, request, content_id):
-        content = self.get_object(content_id)
-        content.delete()
+        row = self.get_row(content_id)
+        # 로그인한 사용자와 글 작성자가 다를 경우 상태코드 403
+        if request.user.id != row.user.id:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        # soft delete
+        # 삭제된 글 추적을 위함
+        row.is_visible = False
+        row.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class CommentListAPIView(generics.ListAPIView):
     serializer_class = CommentSerializer
     pagination_class = CommentsListPagination
-    # permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
-        return CommentInfo.objects.filter(
-            contentinfo_id=self.kwargs.get("content_id"),
-            is_visible=True
-        ).order_by("create_dt")
+        # endpoint: /api/content/<int:content_id>/comment
+        content_id = self.kwargs.get("content_id")
+        # check 'content_id' parameter
+        # CommentInfo
+        if content_id:
+            rows = CommentInfo.objects.filter(contentinfo_id=content_id, is_visible=True)
+            # order by earliest
+            return rows.order_by("create_dt")
+
+        # endpoint: /api/content/comment
+        liked_by = self.request.GET.get("liked-by")
+        user = self.request.GET.get("user")
+        # check 'liked_by' query string
+        # UserInfo.liked_comments
+        if liked_by:
+            if liked_by.isdecimal():
+                rows = get_user_model().objects.get(pk=int(liked_by)).liked_comments.filter(is_visible=True)
+            else:
+                raise InvalidQueryParamsException
+        # check 'user' query string
+        # CommentInfo
+        elif user:
+            if user.isdecimal():
+                rows = CommentInfo.objects.filter(is_visible=True, userinfo_id=int(user))
+            else:
+                raise InvalidQueryParamsException
+        # no query string
+        # CommentInfo
+        else:
+            rows = CommentInfo.objects.filter(is_visible=True)
+
+        # order by latest
+        return rows.order_by("-create_dt")
 
 
 class CommentDetailAPIView(APIView):
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def get_row(self, comment_id):
         return get_object_or_404(CommentInfo, pk=comment_id)
 
     def put(self, request, comment_id):
         row = self.get_row(comment_id)
-        # 로그인한 사용자와 상품 등록자가 다를 경우 상태코드 403
+        # 로그인한 사용자와 댓글 작성자가 다를 경우 상태코드 403
         if request.user.id != row.user.id:
             return Response(status=status.HTTP_403_FORBIDDEN)
 
@@ -194,18 +263,18 @@ class CommentDetailAPIView(APIView):
 
     def delete(self, request, comment_id):
         row = self.get_row(comment_id)
-        # 로그인한 사용자와 상품 등록자가 다를 경우 상태코드 403
+        # 로그인한 사용자와 댓글 작성자가 다를 경우 상태코드 403
         if request.user.id != row.user.id:
             return Response(status=status.HTTP_403_FORBIDDEN)
 
-        # sofr delete
-        # 삭제된 상품 정보 추적을 위함
+        # soft delete
+        # 삭제된 댓글 추적을 위함
         row.is_visible = False
         row.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class PostLikeAPIView(generics.UpdateAPIView):
+class ContentFavoriteAPIView(generics.UpdateAPIView):
     permission_classes = [IsAuthenticated]
     
     queryset = ContentInfo.objects.all()
@@ -225,9 +294,9 @@ class PostLikeAPIView(generics.UpdateAPIView):
             return Response(status=status.HTTP_201_CREATED)
 
 
-class BookmarkAPIView(generics.UpdateAPIView):
+class ContentLikeAPIView(generics.UpdateAPIView):
     permission_classes = [IsAuthenticated]
-    
+
     queryset = ContentInfo.objects.all()
     serializer_class = ContentSerializer
     lookup_field = 'id'
