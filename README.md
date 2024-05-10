@@ -11,6 +11,9 @@ Sparta NEWS에서 최신 정보를 확인하세요 (reference: [GeekNews](https:
 
 날짜가 하루 지날때 마다 -5 Point, 댓글 하나당 +3 Point, 좋아요 하나당 +1 Point
 
+## 개발 기간
+- 2024-05-07 ~ 2024-05-10
+
 ### 글 전체 페이지(`api/content/`)
 
 [API] News 리스트 보여주기 1 (포인트 많은 순으로 정렬 + 날짜 최신순으로 정렬)
