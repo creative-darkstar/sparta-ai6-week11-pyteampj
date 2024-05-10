@@ -12,6 +12,7 @@ from django.utils import timezone
 
 # DRF modules
 from rest_framework import status, generics
+from rest_framework.decorators import api_view
 from rest_framework.exceptions import APIException
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
@@ -182,7 +183,7 @@ class ContentDetailAPIView(generics.ListAPIView):
     def put(self, request, content_id):
         row = self.get_row(content_id)
         # 로그인한 사용자와 글 작성자가 다를 경우 상태코드 403
-        if request.user.id != row.user.id:
+        if request.user.id != row.userinfo.id:
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         serializer = ContentSerializer(row, data=request.data, partial=True)
@@ -193,7 +194,7 @@ class ContentDetailAPIView(generics.ListAPIView):
     def delete(self, request, content_id):
         row = self.get_row(content_id)
         # 로그인한 사용자와 글 작성자가 다를 경우 상태코드 403
-        if request.user.id != row.user.id:
+        if request.user.id != row.userinfo.id:
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         # soft delete
@@ -253,7 +254,7 @@ class CommentDetailAPIView(APIView):
     def put(self, request, comment_id):
         row = self.get_row(comment_id)
         # 로그인한 사용자와 댓글 작성자가 다를 경우 상태코드 403
-        if request.user.id != row.user.id:
+        if request.user.id != row.userinfo.id:
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         serializer = CommentSerializer(row, data=request.data, partial=True)
@@ -264,7 +265,7 @@ class CommentDetailAPIView(APIView):
     def delete(self, request, comment_id):
         row = self.get_row(comment_id)
         # 로그인한 사용자와 댓글 작성자가 다를 경우 상태코드 403
-        if request.user.id != row.user.id:
+        if request.user.id != row.userinfo.id:
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         # soft delete
@@ -274,41 +275,85 @@ class CommentDetailAPIView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class ContentFavoriteAPIView(generics.UpdateAPIView):
-    permission_classes = [IsAuthenticated]
-    
-    queryset = ContentInfo.objects.all()
-    serializer_class = ContentSerializer
-    lookup_field = 'id'
+@api_view(["POST"])
+def content_favorite(request, content_id):
+    if request.user.is_authenticated:
+        me = get_user_model().objects.get(id=request.user.id)
+        content = get_object_or_404(ContentInfo, id=content_id)
 
-    def post(self, request, pk):
-        instance = get_object_or_404(ContentInfo, pk=pk)
-        user = request.user
-        if user in instance.bookmarked_by.all():
-            instance.bookmarked_by.remove(user)
-            instance.save()
-            return Response(status=status.HTTP_200_OK)
+        if me.favorite_contents.filter(id=content_id).exists():
+            me.favorite_contents.remove(content)
+            return Response(
+                data={
+                    "message": "Favorite content canceled.",
+                },
+                status=status.HTTP_200_OK
+            )
         else:
-            instance.bookmarked_by.add(user)
-            instance.save()
-            return Response(status=status.HTTP_201_CREATED)
+            me.favorite_contents.add(content)
+            return Response(
+                data={
+                    "message": "Favorite content success.",
+                    "user": me.username,
+                    "content_id": content.id,
+                },
+                status=status.HTTP_200_OK
+            )
+    else:
+        return Response(status=status.HTTP_403_FORBIDDEN)
 
 
-class ContentLikeAPIView(generics.UpdateAPIView):
-    permission_classes = [IsAuthenticated]
+@api_view(["POST"])
+def content_like(request, content_id):
+    if request.user.is_authenticated:
+        me = get_user_model().objects.get(id=request.user.id)
+        content = get_object_or_404(ContentInfo, id=content_id)
 
-    queryset = ContentInfo.objects.all()
-    serializer_class = ContentSerializer
-    lookup_field = 'id'
-
-    def post(self, request, pk):
-        instance = get_object_or_404(ContentInfo, pk=pk)
-        user = request.user
-        if user in instance.bookmarked_by.all():
-            instance.bookmarked_by.remove(user)
-            instance.save()
-            return Response(status=status.HTTP_200_OK)
+        if me.liked_contents.filter(id=content_id).exists():
+            me.liked_contents.remove(content)
+            return Response(
+                data={
+                    "message": "Like content canceled.",
+                },
+                status=status.HTTP_200_OK
+            )
         else:
-            instance.bookmarked_by.add(user)
-            instance.save()
-            return Response(status=status.HTTP_201_CREATED)
+            me.liked_contents.add(content)
+            return Response(
+                data={
+                    "message": "Like content success.",
+                    "user": me.username,
+                    "content_id": content.id,
+                },
+                status=status.HTTP_200_OK
+            )
+    else:
+        return Response(status=status.HTTP_403_FORBIDDEN)
+
+
+@api_view(["POST"])
+def comment_like(request, comment_id):
+    if request.user.is_authenticated:
+        me = get_user_model().objects.get(id=request.user.id)
+        comment = get_object_or_404(CommentInfo, id=comment_id)
+
+        if me.liked_comments.filter(id=comment_id).exists():
+            me.liked_comments.remove(comment)
+            return Response(
+                data={
+                    "message": "Like comment canceled.",
+                },
+                status=status.HTTP_200_OK
+            )
+        else:
+            me.liked_comments.add(comment)
+            return Response(
+                data={
+                    "message": "Like comment success.",
+                    "user": me.username,
+                    "content_id": comment.id,
+                },
+                status=status.HTTP_200_OK
+            )
+    else:
+        return Response(status=status.HTTP_403_FORBIDDEN)
